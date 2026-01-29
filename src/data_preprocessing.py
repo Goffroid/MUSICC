@@ -1,4 +1,3 @@
-# src/data_preprocessing.py
 import os
 import pretty_midi
 import numpy as np
@@ -28,20 +27,17 @@ class MIDIDataPreprocessor:
         midi_files = []
         count = 0
         
-        # Получаем список всех MIDI файлов
         all_files = []
         for root, dirs, files in os.walk(self.data_path):
             for file in files:
                 if file.endswith('.midi') or file.endswith('.mid'):
                     all_files.append(os.path.join(root, file))
         
-        # Ограничиваем количество файлов
         if len(all_files) > self.max_files:
             all_files = all_files[:self.max_files]
         
         print(f"Найдено {len(all_files)} MIDI файлов, обрабатываем {self.max_files}...")
         
-        # Загружаем файлы с прогресс-баром
         for midi_path in tqdm(all_files, desc="Загрузка MIDI файлов", unit="файл"):
             try:
                 midi = pretty_midi.PrettyMIDI(midi_path)
@@ -61,10 +57,10 @@ class MIDIDataPreprocessor:
             for instrument in midi.instruments:
                 for note in instrument.notes:
                     feature_vector = [
-                        note.pitch,           # высота тона (0-127)
-                        note.velocity / 127,  # громкость (нормализованная)
-                        note.start,          # время начала
-                        note.end - note.start  # длительность
+                        note.pitch,           
+                        note.velocity / 127,  
+                        note.start,          
+                        note.end - note.start  
                     ]
                     features.append(feature_vector)
             
@@ -81,7 +77,7 @@ class MIDIDataPreprocessor:
         if len(features) > self.seq_length + 1:
             for i in range(len(features) - self.seq_length - 1):
                 seq = features[i:i + self.seq_length]
-                target = features[i + self.seq_length][0]  # Предсказываем следующую ноту
+                target = features[i + self.seq_length][0]  
                 sequences.append(seq)
                 targets.append(target)
         
@@ -93,7 +89,7 @@ class MIDIDataPreprocessor:
         print("НАЧАЛО ПРЕДОБРАБОТКИ ДАННЫХ")
         print("=" * 60)
         
-        # 1. Загрузка MIDI файлов
+       
         print("\n1. Загрузка MIDI файлов...")
         midi_files = self.load_midi_files()
         
@@ -104,15 +100,14 @@ class MIDIDataPreprocessor:
         all_sequences = []
         all_targets = []
         
-        # 2. Извлечение признаков и создание последовательностей
+        
         print("\n2. Извлечение признаков и создание последовательностей...")
         with tqdm(total=len(midi_files), desc="Обработка файлов", unit="файл") as pbar:
             for file_name, midi in midi_files:
-                # Извлечение признаков
+                
                 features = self.extract_features(midi, file_name)
                 
                 if len(features) > self.seq_length + 1:
-                    # Создание последовательностей
                     sequences, targets = self.create_sequences(features, file_name)
                     
                     if len(sequences) > 0:
@@ -125,7 +120,6 @@ class MIDIDataPreprocessor:
                 
                 pbar.update(1)
         
-        # Объединение всех последовательностей
         if all_sequences:
             X = np.vstack(all_sequences)
             y = np.hstack(all_targets)
@@ -135,7 +129,6 @@ class MIDIDataPreprocessor:
         
         print(f"\nФинальная форма данных: X={X.shape}, y={y.shape}")
         
-        # Сохранение обработанных данных
         os.makedirs('../data/processed', exist_ok=True)
         np.save('../data/processed/X.npy', X)
         np.save('../data/processed/y.npy', y)
@@ -159,7 +152,6 @@ class MIDIDataPreprocessor:
         print(f"🔢 Количество признаков: {X.shape[2]}")
         print(f"🎵 Уникальных нот (целевая переменная): {len(np.unique(y))}")
         
-        # Статистика по признакам
         print("\n📈 Статистика по признакам:")
         feature_names = ['Высота тона (pitch)', 'Громкость (velocity)', 
                         'Время начала (start_time)', 'Длительность (duration)']
@@ -175,11 +167,9 @@ class MIDIDataPreprocessor:
             }
             stats_data.append(stats)
         
-        # Красивый вывод таблицы
         from tabulate import tabulate
         print(tabulate(stats_data, headers="keys", tablefmt="grid"))
         
-        # Распределение нот
         print(f"\n🎹 Распределение нот:")
         unique_notes, counts = np.unique(y, return_counts=True)
         print(f"   Самая частая нота: {int(unique_notes[np.argmax(counts)])} (встречается {np.max(counts)} раз)")

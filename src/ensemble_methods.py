@@ -1,4 +1,3 @@
-# src/ensemble_methods.py
 import numpy as np
 import os
 from sklearn.ensemble import VotingClassifier, StackingClassifier, BaggingClassifier
@@ -24,12 +23,11 @@ class EnsembleMethods:
         """Создание ансамбля методом голосования - БЕЗ параллелизма для Windows"""
         print("🤝 Создание Voting Ensemble...")
         
-        # Фильтруем только успешные модели (первые 3 для экономии памяти)
         estimators = []
         for name, model in self.base_models.items():
             if model is not None:
                 estimators.append((name, model))
-                if len(estimators) >= 3:  # Ограничиваем количество моделей
+                if len(estimators) >= 3:  
                     break
         
         if not estimators:
@@ -39,7 +37,7 @@ class EnsembleMethods:
         voting_clf = VotingClassifier(
             estimators=estimators,
             voting='soft',
-            n_jobs=1,  # В Windows ставим 1 вместо -1 для избежания ошибок
+            n_jobs=1,  
             verbose=0
         )
         
@@ -50,12 +48,11 @@ class EnsembleMethods:
         """Создание стекинг-ансамбля"""
         print("🏗️ Создание Stacking Ensemble...")
         
-        # Фильтруем только успешные модели
         estimators = []
         for name, model in self.base_models.items():
             if model is not None:
                 estimators.append((name, model))
-                if len(estimators) >= 3:  # Ограничиваем количество
+                if len(estimators) >= 3: 
                     break
         
         if not estimators:
@@ -66,7 +63,7 @@ class EnsembleMethods:
             estimators=estimators,
             final_estimator=LogisticRegression(max_iter=1000, n_jobs=1),
             cv=3,
-            n_jobs=1,  # Отключаем параллелизм
+            n_jobs=1,  
             verbose=0
         )
         
@@ -81,8 +78,8 @@ class EnsembleMethods:
             estimator=base_model,
             n_estimators=n_estimators,
             max_samples=0.8,
-            max_features=0.7,  # Используем меньше признаков
-            n_jobs=1,  # Отключаем параллелизм
+            max_features=0.7,  
+            n_jobs=1,  
             random_state=42,
             verbose=0
         )
@@ -100,7 +97,6 @@ class EnsembleMethods:
         
         start_time = time.time()
         
-        # Используем tqdm для визуализации обучения
         with tqdm(total=1, desc=f"Обучение {ensemble_name}", unit="модель") as pbar:
             try:
                 ensemble.fit(X_train, y_train)
@@ -123,11 +119,9 @@ class EnsembleMethods:
         print(f"\n📊 Оценка {ensemble_name}...")
         
         with tqdm(total=2, desc="Оценка модели", unit="этап") as pbar:
-            # Предсказания
             y_pred = ensemble.predict(X_test)
             pbar.update(1)
             
-            # Метрики
             accuracy = accuracy_score(y_test, y_pred)
             f1 = f1_score(y_test, y_pred, average='weighted')
             pbar.update(1)
@@ -144,5 +138,5 @@ class EnsembleMethods:
         model_path = os.path.join(self.project_root, 'models', f'{ensemble_name}.pkl')
         self.ensure_directory_exists(model_path)
         
-        joblib.dump(ensemble, model_path, compress=3)  # Используем сжатие
+        joblib.dump(ensemble, model_path, compress=3)  
         print(f"💾 {ensemble_name} сохранен: {model_path}")

@@ -1,8 +1,3 @@
-# src/__init__.py
-"""
-Пакет для генерации музыки с помощью ансамблевых методов
-"""
-
 from .data_preprocessing import MIDIDataPreprocessor
 from .feature_engineering import FeatureEngineer
 from .models import BaseModels, AdvancedModels, ModelEvaluator

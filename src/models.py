@@ -1,4 +1,3 @@
-# src/models.py
 import numpy as np
 import os
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
@@ -30,7 +29,6 @@ class BaseModels:
         self.project_root = project_root
         self.fast_mode = fast_mode
         
-        # Определяем модели в зависимости от режима
         if fast_mode:
             self.models = self._get_fast_models()
         else:
@@ -40,13 +38,13 @@ class BaseModels:
         """Быстрые модели для обучения на ноутбуке с Windows"""
         return {
             'Random Forest': RandomForestClassifier(
-                n_estimators=30,  # Меньше деревьев
+                n_estimators=30,  
                 max_depth=8,
                 min_samples_split=20,
                 random_state=42,
-                n_jobs=1,  # Отключаем параллелизм для Windows
+                n_jobs=1,  
                 verbose=0,
-                max_samples=0.7  # Используем подвыборку
+                max_samples=0.7  
             ),
             'Decision Tree': DecisionTreeClassifier(
                 max_depth=8,
@@ -56,22 +54,22 @@ class BaseModels:
             'Logistic Regression': LogisticRegression(
                 max_iter=500,
                 random_state=42,
-                n_jobs=1,  # Отключаем параллелизм
+                n_jobs=1,  
                 solver='saga',
                 tol=1e-2,
                 verbose=0
             ),
             'K-Neighbors': KNeighborsClassifier(
                 n_neighbors=5,
-                n_jobs=1,  # Отключаем параллелизм
-                algorithm='ball_tree'  # Более стабильный алгоритм
+                n_jobs=1,  
+                algorithm='ball_tree' 
             ),
             'Naive Bayes': GaussianNB(),
             'Linear Discriminant': LinearDiscriminantAnalysis(),
             'Perceptron': Perceptron(
                 max_iter=100,
                 random_state=42,
-                n_jobs=1,  # Отключаем параллелизм
+                n_jobs=1,  
                 tol=1e-2,
                 verbose=0
             )
@@ -83,7 +81,7 @@ class BaseModels:
             'Random Forest': RandomForestClassifier(
                 n_estimators=50,
                 random_state=42,
-                n_jobs=1,  # Отключаем параллелизм для Windows
+                n_jobs=1,  
                 verbose=0
             ),
             'Linear SVM': LinearSVC(
@@ -99,13 +97,13 @@ class BaseModels:
                 max_iter=500,
                 tol=1e-2,
                 random_state=42,
-                n_jobs=1,  # Отключаем параллелизм
+                n_jobs=1, 
                 learning_rate='optimal',
                 verbose=0
             ),
             'K-Neighbors': KNeighborsClassifier(
                 n_neighbors=5,
-                n_jobs=1  # Отключаем параллелизм
+                n_jobs=1  
             ),
             'Naive Bayes': GaussianNB(),
             'Decision Tree': DecisionTreeClassifier(
@@ -140,9 +138,7 @@ class BaseModels:
         try:
             start_time = time.time()
             
-            # Для Windows: ограничиваем размер данных для экономии памяти
             if self.fast_mode and X_train.shape[0] > 3000:
-                # Берем случайную подвыборку
                 np.random.seed(42)
                 indices = np.random.choice(len(X_train), min(3000, len(X_train)), replace=False)
                 X_train_sub = X_train[indices]
@@ -154,10 +150,8 @@ class BaseModels:
             
             training_time = time.time() - start_time
             
-            # Предсказания
             y_pred = model.predict(X_val)
             
-            # Метрики
             accuracy = accuracy_score(y_val, y_pred)
             f1 = f1_score(y_val, y_pred, average='weighted')
             precision = precision_score(y_val, y_pred, average='weighted', zero_division=0)
@@ -203,7 +197,6 @@ class BaseModels:
         print("💡 ПОДСКАЗКА: Для Windows отключен параллелизм для избежания ошибок памяти")
         print("-" * 60)
         
-        # Создаем прогресс-бар для всех моделей
         model_names = list(self.models.keys())
         
         with tqdm(total=len(model_names), desc="Прогресс обучения", unit="модель", 
@@ -213,28 +206,24 @@ class BaseModels:
                 pbar.set_description(f"Обучение: {name[:20]:<20}")
                 model = self.models[name]
                 
-                # Обучение модели
                 result = self.train_single_model(name, model, X_train, y_train, X_val, y_val)
                 results[name] = result
                 
                 if result['success']:
-                    # Обновляем прогресс-бар
                     pbar.set_postfix({
                         'точность': f"{result['accuracy']:.3f}",
                         'время': f"{result['training_time']:.1f}с"
                     })
                     
-                    # Сохранение модели
                     model_path = os.path.join(self.project_root, 'models', 'base_models', 
                                             f'{name.replace("/", "_").replace(" ", "_")}.pkl')
                     self.ensure_directory_exists(model_path)
-                    joblib.dump(model, model_path, compress=3)  # Используем сжатие
+                    joblib.dump(model, model_path, compress=3)  
                 else:
                     pbar.set_postfix({'статус': 'ошибка'})
                 
                 pbar.update(1)
         
-        # Вывод результатов
         self._print_results_table(results)
         
         return results
@@ -263,7 +252,6 @@ class BaseModels:
             headers = ['Модель', 'Точность', 'F1-Score', 'Precision', 'Recall', 'Время']
             print(tabulate(table_data, headers=headers, tablefmt='grid'))
             
-            # Находим лучшую модель
             best_idx = np.argmax([r['accuracy'] for r in results.values() if r['success']])
             best_name = list(results.keys())[best_idx]
             best_acc = table_data[best_idx][1]
@@ -294,8 +282,8 @@ class AdvancedModels:
         
         if fast_mode:
             self.models = {
-                'XGBoost': None,  # XGBoost часто вызывает проблемы в Windows
-                'LightGBM': None  # LightGBM также может вызывать проблемы
+                'XGBoost': None,  
+                'LightGBM': None  
             }
         else:
             self.models = {
@@ -303,7 +291,6 @@ class AdvancedModels:
                 'LightGBM': None,
                 'CatBoost': None
             }
-        # В Windows отключаем сложные модели из-за проблем с памятью
         print("⚠️  В Windows режиме отключены XGBoost/LightGBM/CatBoost из-за проблем с памятью")
     
     def train(self, X_train, y_train, X_val, y_val):
@@ -333,7 +320,6 @@ class ModelEvaluator:
         
         all_results = []
         
-        # Базовые модели
         for name, result in base_results.items():
             if result.get('success', False):
                 all_results.append([
@@ -344,7 +330,6 @@ class ModelEvaluator:
                     "Базовая"
                 ])
         
-        # Продвинутые модели (если есть)
         for name, result in advanced_results.items():
             if result.get('success', False):
                 all_results.append([
@@ -355,7 +340,6 @@ class ModelEvaluator:
                     "Продвинутая"
                 ])
         
-        # Сортируем по точности
         all_results.sort(key=lambda x: float(x[1]), reverse=True)
         
         if all_results:
@@ -393,13 +377,11 @@ class ModelEvaluator:
         plt.yticks(range(len(models)), models)
         plt.grid(axis='x', alpha=0.3)
         
-        # Добавление значений
         for i, (bar, acc) in enumerate(zip(bars, accuracies)):
             width = bar.get_width()
             plt.text(width + 0.01, bar.get_y() + bar.get_height()/2,
                     f'{acc:.3f}', ha='left', va='center', fontsize=10)
         
-        # Легенда
         from matplotlib.patches import Patch
         legend_elements = [
             Patch(facecolor='#45B7D1', edgecolor='black', label='Базовые модели'),

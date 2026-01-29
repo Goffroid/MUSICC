@@ -1,8 +1,6 @@
-# main_windows.py - версия для Windows с исправлениями проблем памяти
 import sys
 import os
 
-# Добавляем путь к src
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.join(current_dir, 'src'))
 
@@ -27,7 +25,6 @@ def main_windows():
     
     total_start_time = time.time()
     
-    # 1. Создание папок
     print("📁 Создание структуры проекта...")
     folders = [
         'data/raw',
@@ -42,7 +39,6 @@ def main_windows():
         os.makedirs(os.path.join(current_dir, folder), exist_ok=True)
         print(f"  ✓ {folder}")
     
-    # 2. Проверка датасета
     maestro_path = os.path.join(current_dir, 'data', 'raw', 'maestro-v3.0.0')
     if not os.path.exists(maestro_path):
         print("❌ Датасет не найден!")
@@ -53,10 +49,9 @@ def main_windows():
         print("3. Перезапустите программу")
         return
     
-    # 3. Конфигурация для Windows (очень легкая)
     config = {
-        'max_files': 8,           # Очень мало файлов для Windows
-        'seq_length': 25,         # Очень короткие последовательности
+        'max_files': 8,          
+        'seq_length': 25,         
         'test_size': 0.2,
         'random_state': 42,
         'fast_mode': True
@@ -69,7 +64,6 @@ def main_windows():
     print("  ⚠️  Отключен параллелизм и сложные модели для избежания ошибок памяти")
     
     try:
-        # 1. Подготовка данных
         print("\n" + "=" * 50)
         print("📦 ЭТАП 1: ПОДГОТОВКА ДАННЫХ")
         print("=" * 50)
@@ -86,23 +80,19 @@ def main_windows():
             print("❌ Не удалось загрузить данные!")
             return
         
-        # 2. Инженерия признаков
         print("\n" + "=" * 50)
         print("🔧 ЭТАП 2: ИНЖЕНЕРИЯ ПРИЗНАКОВ")
         print("=" * 50)
         
         engineer = FeatureEngineer(project_root=current_dir, fast_mode=True)
         
-        # Нормализация
+        
         X_normalized = engineer.normalize_features(X)
         
-        # Сохраняем scaler для будущей генерации
         scaler = engineer.scaler
         
-        # Извлечение БАЗОВЫХ признаков (минимум для экономии памяти)
         X_features = engineer.extract_temporal_features(X_normalized, feature_types=['basic'])
         
-        # 3. Разделение данных
         print("\n" + "=" * 50)
         print("✂️ ЭТАП 3: РАЗДЕЛЕНИЕ ДАННЫХ")
         print("=" * 50)
@@ -118,7 +108,6 @@ def main_windows():
         print(f"✅ Тестовая выборка: {X_test.shape[0]:,} примеров")
         print(f"✅ Количество признаков: {X_train.shape[1]}")
         
-        # 4. Обучение БАЗОВЫХ моделей (без параллелизма)
         print("\n" + "=" * 50)
         print("🤖 ЭТАП 4: ОБУЧЕНИЕ БАЗОВЫХ МОДЕЛЕЙ")
         print("=" * 50)
@@ -127,12 +116,10 @@ def main_windows():
         base_trainer = BaseModels(project_root=current_dir, fast_mode=True)
         base_results = base_trainer.train_models(X_train, y_train, X_test, y_test)
         
-        # 5. Простой ансамбль (только Voting с 2-3 моделями)
         print("\n" + "=" * 50)
         print("🎭 ЭТАП 5: ПРОСТОЙ АНСАМБЛЬ (Voting)")
         print("=" * 50)
         
-        # Собираем только успешные модели
         base_models = {}
         successful_models = []
         
@@ -147,7 +134,6 @@ def main_windows():
         voting_time = 0.0
         
         if len(successful_models) >= 2:
-            # Сортируем по точности и берем 2 лучшие
             successful_models.sort(key=lambda x: x[1], reverse=True)
             top_models = successful_models[:2]
             
@@ -155,14 +141,13 @@ def main_windows():
             for name, acc in top_models:
                 print(f"   • {name}: {acc:.4f}")
             
-            # Создаем простой VotingClassifier
             from sklearn.ensemble import VotingClassifier
             
             estimators = [(name, base_models[name]) for name, _ in top_models]
             voting = VotingClassifier(
                 estimators=estimators,
                 voting='soft',
-                n_jobs=1,  # Отключаем параллелизм
+                n_jobs=1,  
                 verbose=0
             )
             
@@ -171,7 +156,6 @@ def main_windows():
             voting.fit(X_train, y_train)
             voting_time = time.time() - start_time
             
-            # Оценка
             y_pred_voting = voting.predict(X_test)
             from sklearn.metrics import accuracy_score, f1_score
             voting_accuracy = accuracy_score(y_test, y_pred_voting)
@@ -180,26 +164,23 @@ def main_windows():
             print(f"✅ Voting Ensemble: Точность={voting_accuracy:.4f}, F1={voting_f1:.4f}")
             print(f"⏱️  Время обучения: {voting_time:.2f} секунд")
             
-            # Сохранение модели
             model_path = os.path.join(current_dir, 'models', 'voting_ensemble_windows.pkl')
             joblib.dump(voting, model_path, compress=3)
             print(f"💾 Модель сохранена: {model_path}")
             
             voting_model = voting
             
-            # Добавляем результаты Voting
             base_results['Voting Ensemble'] = {
                 'model': voting,
                 'accuracy': voting_accuracy,
                 'f1_score': voting_f1,
-                'precision': voting_accuracy,  # Примерно
-                'recall': voting_accuracy,     # Примерно
+                'precision': voting_accuracy,  
+                'recall': voting_accuracy,     
                 'training_time': voting_time,
                 'success': True
             }
         else:
             print("⚠️  Недостаточно успешных моделей для создания ансамбля")
-            # Сохраняем лучшую модель как основную
             if successful_models:
                 best_name, best_acc = successful_models[0]
                 best_model = base_models[best_name]
@@ -209,30 +190,24 @@ def main_windows():
                 voting_model = best_model
                 voting_accuracy = best_acc
         
-        # 6. Сохранение scaler для будущей генерации
                
         print("\n💾 Сохранение scaler для генерации музыки...")
         
-        # Получаем обученный scaler из FeatureEngineer
         scaler_path = os.path.join(current_dir, 'models', 'scaler.pkl')
         
-        # Проверяем, что scaler обучен
         if hasattr(engineer.scaler, 'mean_'):
             joblib.dump(engineer.scaler, scaler_path, compress=3)
             print(f"✅ Scaler сохранен: {scaler_path}")
             
-            # Дополнительная информация о scaler
             print(f"   • Обучен на {len(engineer.scaler.mean_)} признаках")
             print(f"   • Средние значения: {engineer.scaler.mean_[:3]}...")
             print(f"   • Стандартные отклонения: {engineer.scaler.scale_[:3]}...")
         else:
             print("❌ Scaler не был обучен! Создаю и обучаю новый...")
             
-            # Создаем и обучаем новый scaler на тренировочных данных
             from sklearn.preprocessing import StandardScaler
             new_scaler = StandardScaler()
             
-            # Подготавливаем данные для обучения scaler
             if len(X_train.shape) == 3:
                 X_train_flat = X_train.reshape(-1, X_train.shape[-1])
             else:
@@ -242,7 +217,6 @@ def main_windows():
             joblib.dump(new_scaler, scaler_path, compress=3)
             print(f"✅ Новый scaler обучен и сохранен: {scaler_path}")
         
-        # Сохранение информации о модели
         model_info = {
             'seq_length': config['seq_length'],
             'fast_mode': config['fast_mode'],
@@ -259,7 +233,6 @@ def main_windows():
             json.dump(model_info, f, indent=2, ensure_ascii=False)
         print(f"✅ Информация о модели сохранена: {info_path}")
         
-        # 7. Итоговые результаты
         print("\n" + "=" * 70)
         print("📈 ИТОГОВЫЕ РЕЗУЛЬТАТЫ")
         print("=" * 70)
@@ -277,7 +250,6 @@ def main_windows():
                 ])
         
         if table_data:
-            # Сортируем по точности
             table_data.sort(key=lambda x: float(x[1]), reverse=True)
             
             print(tabulate(table_data, 
@@ -286,22 +258,20 @@ def main_windows():
             
             print(f"\n🏆 ЛУЧШАЯ МОДЕЛЬ: {table_data[0][0]} с точностью {table_data[0][1]}")
             
-            # Визуализация
             print("\n📊 Создание графика сравнения моделей...")
             models = [row[0] for row in table_data[:8]]  # Топ-8
             accuracies = [float(row[1]) for row in table_data[:8]]
             
             plt.figure(figsize=(10, 6))
             
-            # Цвета в зависимости от типа модели
             colors = []
             for model_name in models:
                 if 'Voting' in model_name:
-                    colors.append('#FF6B6B')  # Красный для ансамбля
+                    colors.append('#FF6B6B')  
                 elif 'Random' in model_name or 'Decision' in model_name:
-                    colors.append('#4ECDC4')  # Бирюзовый для деревьев
+                    colors.append('#4ECDC4')  
                 else:
-                    colors.append('#45B7D1')  # Синий для остальных
+                    colors.append('#45B7D1')  
             
             bars = plt.bar(models, accuracies, color=colors, edgecolor='black')
             
@@ -312,7 +282,6 @@ def main_windows():
             plt.ylim(0, 1)
             plt.grid(axis='y', alpha=0.3)
             
-            # Добавление значений
             for bar, acc in zip(bars, accuracies):
                 height = bar.get_height()
                 plt.text(bar.get_x() + bar.get_width()/2., height + 0.01,
@@ -320,13 +289,11 @@ def main_windows():
             
             plt.tight_layout()
             
-            # Сохранение графика
             plot_path = os.path.join(current_dir, 'results', 'plots', 'windows_results.png')
             plt.savefig(plot_path, dpi=100, bbox_inches='tight')
             print(f"✅ График сохранен: {plot_path}")
             plt.show()
             
-            # 8. Сохранение финального отчета
             print("\n📋 Создание финального отчета...")
             report_path = os.path.join(current_dir, 'results', 'training_report.txt')
             with open(report_path, 'w', encoding='utf-8') as f:

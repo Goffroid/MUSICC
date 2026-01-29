@@ -1,4 +1,3 @@
-# generate_music.py - обновленная версия
 import sys
 import os
 
@@ -14,7 +13,6 @@ def main():
     print("🎵 ГЕНЕРАЦИЯ МУЗЫКИ С ПОМОЩЬЮ ОБУЧЕННОЙ МОДЕЛИ")
     print("=" * 70)
     
-    # Парсинг аргументов командной строки
     parser = argparse.ArgumentParser(description='Генерация музыки с помощью ИИ')
     parser.add_argument('--model', type=str, default='models/voting_ensemble_windows.pkl',
                        help='Путь к обученной модели')
@@ -41,23 +39,19 @@ def main():
     
     args = parser.parse_args()
     
-    # Проверка наличия файлов
     if not os.path.exists(args.model):
         print(f"❌ Модель не найдена: {args.model}")
         print("Сначала обучите модель с помощью main_windows.py")
         return
     
-    # Проверка scaler (опционально)
     if args.scaler and not os.path.exists(args.scaler):
         print(f"⚠️ Scaler не найден: {args.scaler}")
         print("Будет использована ручная нормализация")
         args.scaler = None
     
-    # Создаем папку для результатов
     os.makedirs(args.output, exist_ok=True)
     
     try:
-        # 1. Инициализация генератора
         print("\n1. Инициализация генератора музыки...")
         generator = MusicGenerator(
             model_path=args.model,
@@ -65,7 +59,6 @@ def main():
             project_root=current_dir
         )
         
-        # 2. Подготовка seed последовательности
         print("\n2. Подготовка seed последовательности...")
         if args.seed_type == 'random':
             seed_notes = generator.generate_random_seed(seq_length=args.seq_length)
@@ -78,7 +71,6 @@ def main():
                 print(f"⚠️  Файл не указан или не найден, использую случайный seed")
                 seed_notes = generator.generate_random_seed(seq_length=args.seq_length)
         
-        # 3. Генерация музыки
         print(f"\n3. Генерация {args.num_notes} нот...")
         print(f"   • Длина последовательности: {args.seq_length}")
         print(f"   • Температура (творчество): {args.temperature}")
@@ -92,13 +84,11 @@ def main():
             seq_length=args.seq_length
         )
         
-        # 4. Сохранение результатов
         print("\n4. Сохранение результатов...")
         
         import datetime
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         
-        # MIDI файл
         midi_filename = f"generated_music_{timestamp}.mid"
         midi_path = os.path.join(args.output, midi_filename)
         
@@ -109,7 +99,6 @@ def main():
             output_path=midi_path
         )
         
-        # Текстовый файл с нотами
         txt_filename = f"generated_music_{timestamp}.txt"
         txt_path = os.path.join(args.output, txt_filename)
         

@@ -1,4 +1,3 @@
-# src/music_generator.py - ИСПРАВЛЕННАЯ ВЕРСИЯ
 import numpy as np
 import os
 import joblib
@@ -21,16 +20,13 @@ class MusicGenerator:
         """
         self.project_root = project_root
         
-        # Загружаем модель
         print(f"🎵 Загрузка модели из {model_path}...")
         self.model = joblib.load(model_path)
         
-        # Загружаем scaler если указан
         if scaler_path and os.path.exists(scaler_path):
             print(f"📊 Загрузка scaler из {scaler_path}...")
             self.scaler = joblib.load(scaler_path)
             
-            # Проверяем количество признаков в scaler
             if hasattr(self.scaler, 'n_features_in_'):
                 print(f"   • Scaler ожидает {self.scaler.n_features_in_} признаков")
             elif hasattr(self.scaler, 'mean_'):
@@ -52,7 +48,6 @@ class MusicGenerator:
             np.array: нормализованная последовательность
         """
         if self.scaler is not None:
-            # Проверяем совместимость размерностей
             if sequence.shape[1] != self.scaler.n_features_in_:
                 print(f"⚠️  Несоответствие признаков: данные {sequence.shape[1]}, scaler {self.scaler.n_features_in_}")
                 print("   Использую ручную нормализацию...")
@@ -63,19 +58,14 @@ class MusicGenerator:
     
     def _manual_normalize(self, sequence):
         """Ручная нормализация признаков"""
-        # Создаем копию данных
         normalized = sequence.copy().astype(float)
         
-        # Нормализация каждого признака
-        # Pitch: 0-127 -> 0-1
         normalized[:, 0] = sequence[:, 0] / 127.0
         
-        # Velocity: уже нормализована (0-1)
-        # Start time: нормализуем относительно максимального времени
+        
         if sequence[:, 2].max() > 0:
             normalized[:, 2] = sequence[:, 2] / sequence[:, 2].max()
         
-        # Duration: нормализуем относительно максимальной длительности
         if sequence[:, 3].max() > 0:
             normalized[:, 3] = sequence[:, 3] / sequence[:, 3].max()
         
@@ -109,21 +99,18 @@ class MusicGenerator:
         Извлечение временных признаков из нормализованной последовательности
         (такое же как при обучении)
         """
-        # Базовые признаки
         mean_features = np.mean(sequence, axis=0)
         std_features = np.std(sequence, axis=0)
         
-        # Разности
         if len(sequence) > 1:
             diff_features = np.diff(sequence, axis=0).mean(axis=0)
         else:
             diff_features = np.zeros(sequence.shape[1])
         
-        # Минимум и максимум
+       
         min_features = np.min(sequence, axis=0)
         max_features = np.max(sequence, axis=0)
         
-        # Объединяем все признаки
         combined_features = np.concatenate([
             mean_features, 
             std_features, 
@@ -144,17 +131,13 @@ class MusicGenerator:
         Returns:
             np.array: подготовленные признаки для модели
         """
-        # 1. Нормализуем сырые данные
         sequence_normalized = self.normalize_sequence(sequence)
         
-        # 2. Извлекаем временные признаки (как при обучении)
         features = self.extract_temporal_features(sequence_normalized)
         
-        # 3. Если модель ожидает другое количество признаков, преобразуем
         if hasattr(self.model, 'n_features_in_'):
             if features.shape[1] != self.model.n_features_in_:
                 print(f"⚠️  Модель ожидает {self.model.n_features_in_} признаков, а получено {features.shape[1]}")
-                # Просто обрезаем или дополняем нулями
                 if features.shape[1] > self.model.n_features_in_:
                     features = features[:, :self.model.n_features_in_]
                 else:
@@ -183,29 +166,23 @@ class MusicGenerator:
         
         with tqdm(total=num_notes, desc="Генерация музыки", unit="нот") as pbar:
             for i in range(num_notes):
-                # Ограничиваем длину текущей последовательности
                 if len(current_sequence) > seq_length:
                     current_seq = current_sequence[-seq_length:]
                 else:
                     current_seq = current_sequence.copy()
                 
-                # Преобразуем текущую последовательность в признаки
                 sequence_array = self.extract_features_from_notes(current_seq)
                 
                 try:
-                    # Подготавливаем для предсказания
                     X = self.prepare_sequence_for_prediction(sequence_array)
                     
-                    # Получаем предсказание
                     if hasattr(self.model, 'predict_proba'):
                         probabilities = self.model.predict_proba(X)[0]
                         
-                        # Применяем temperature
                         if temperature != 1.0:
                             probabilities = np.power(probabilities, 1.0/temperature)
                             probabilities = probabilities / probabilities.sum()
                         
-                        # Выбираем ноту на основе вероятностей
                         predicted_pitch = np.random.choice(
                             len(probabilities), 
                             p=probabilities
@@ -213,20 +190,16 @@ class MusicGenerator:
                     else:
                         predicted_pitch = self.model.predict(X)[0]
                     
-                    # Получаем параметры для новой ноты из текущей последовательности
                     pitches = [note[0] for note in current_seq]
                     velocities = [note[1] for note in current_seq]
                     durations = [note[3] for note in current_seq]
                     
-                    # Вычисляем средние значения
                     new_velocity = np.mean(velocities) if velocities else 0.5
                     new_duration = np.mean(durations) if durations else 0.5
                     
-                    # Время начала = время окончания последней ноты
                     last_note = current_sequence[-1]
                     new_start = last_note[2] + last_note[3]
                     
-                    # Создаем новую ноту
                     new_note = (
                         int(predicted_pitch),
                         float(new_velocity),
@@ -246,7 +219,6 @@ class MusicGenerator:
                     
                 except Exception as e:
                     print(f"⚠️ Ошибка при генерации ноты {i}: {e}")
-                    # Если ошибка, добавляем случайную ноту
                     last_note = current_sequence[-1] if current_sequence else (60, 0.5, 0.0, 0.5)
                     new_note = (
                         np.random.randint(60, 72),
